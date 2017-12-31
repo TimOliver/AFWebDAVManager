@@ -22,7 +22,9 @@
 
 #import <Foundation/Foundation.h>
 
-#import "AFHTTPRequestOperationManager.h"
+#import <AFNetworking/AFNetworking.h>
+#import "ONOXMLDocument.h"
+
 
 typedef NS_ENUM(NSUInteger, AFWebDAVDepth) {
     AFWebDAVZeroDepth = 0,
@@ -46,7 +48,8 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
  
  @see http://tools.ietf.org/html/rfc4918
  */
-@interface AFWebDAVManager : AFHTTPRequestOperationManager
+
+@interface AFWebDAVManager : AFHTTPSessionManager
 
 ///-------------------------------
 /// @name Accessing XML Namespaces
@@ -56,6 +59,12 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
  XML namespaces keyed by their abbreviation. By default, this property uses the "D" abbreviation for the "DAV"  
  */
 @property (nonatomic, strong) NSDictionary *namespacesKeyedByAbbreviation;
+
+/**
+ XML the default abbreviation of namespaces. default is "D"
+ */
+@property (nonatomic, strong) NSString *defaultAbbreviationOfXMLnamespaces;
+
 
 ///-------------------------------
 /// @name File Manager Interaction
@@ -85,10 +94,14 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
 
 /**
  Removes a file at the path represented by the specified URL string.
-
  */
-- (void)removeFileAtURLString:(NSString *)URLString
-            completionHandler:(void (^)(NSURL *fileURL, NSError *error))completionHandler;
+- (NSURLSessionDataTask *)removeFileAtURLString:(NSString *)URLString
+                                       tokenDic:(NSDictionary<NSString*,NSString*> *)tokenDic
+                                 extraHeaderDic:(NSDictionary<NSString*,NSString*> *)extraHeaderDic
+                                       dataType:(NSString *)dataType
+                                 attributesData:(NSDictionary<NSString *,NSString *> *)attributesDataToDelete
+                                        success:(void (^)(NSURLSessionDataTask *task, id responseObject))success
+                                        failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
 
 /**
  Moves a file from path to another path represented by the specified URL strings.
@@ -127,11 +140,16 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
  @param failure A block object to be executed when the request operation finishes unsuccessfully, or that finishes successfully, but encountered an error while parsing the response data. This block has no return value and takes a two arguments: the request operation and the error describing the network or parsing error that occurred.
 
  @see -HTTPRequestOperationWithRequest:success:failure:
+ 
+ modify by OYXJ on 2016.08
  */
-- (AFHTTPRequestOperation *)PUT:(NSString *)URLString
-                           data:(NSData *)data
-                        success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
-                        failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure;
+- (NSURLSessionDataTask *)multiPUT:(NSString *)URLString
+                   tokenDictionary:(NSDictionary<NSString*,NSString*> *)tokenDictionary
+             extraHeaderDictionary:(NSDictionary<NSString*,NSString*> *)extraHeaderDictionary
+                          dataType:(NSString *)dataType
+                    attributesData:(NSDictionary<NSString*,NSString*> *)attributesData
+                           success:(void (^)(NSURLSessionDataTask *task, id responseObject))success
+                           failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
 
 /**
  Creates and runs an `AFHTTPRequestOperation` with a `PUT` request with contents of the specified file.
@@ -143,10 +161,14 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
 
  @see -HTTPRequestOperationWithRequest:success:failure:
  */
-- (AFHTTPRequestOperation *)PUT:(NSString *)URLString
-                           file:(NSURL *)fileURL
-                        success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
-                        failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure;
+- (NSURLSessionDataTask *)multiPUT:(NSString *)URLString
+                   tokenDictionary:(NSDictionary<NSString*,NSString*> *)tokenDictionary
+             extraHeaderDictionary:(NSDictionary<NSString*,NSString*> *)extraHeaderDictionary
+                          dataType:(NSString *)dataType
+                              file:(NSURL *)fileURL
+                    attributesData:(NSDictionary<NSString*,NSString*> *)attributesDataToPut
+                           success:(void (^)(NSURLSessionDataTask *task, id responseObject))success
+                           failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
 
 /**
  Creates and runs an `AFHTTPRequestOperation` with a `PROPFIND` request with the specified properties.
@@ -158,11 +180,45 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
 
  @see -HTTPRequestOperationWithRequest:success:failure:
  */
-- (AFHTTPRequestOperation *)PROPFIND:(NSString *)URLString
-                       propertyNames:(NSArray *)propertyNames
-                               depth:(AFWebDAVDepth)depth
-                             success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
-                             failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure;
+- (NSURLSessionDataTask *)PROPFIND:(NSString *)URLString
+                          tokenDictionary:(NSDictionary<NSString*,NSString*> *)tokenDictionary
+                     propertyNames:(NSArray *)propertyNames
+                             depth:(AFWebDAVDepth)depth
+                           success:(void (^)(NSURLSessionDataTask *task, id responseObject))success
+                           failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
+
+/**
+ GET
+ */
+- (NSURLSessionDataTask *)GET:(NSString *)URLString
+                     tokenDictionary:(NSDictionary<NSString *, NSString *>  *)tokenDictionary
+                     dataType:(NSString *)dataType
+                     pathList:(NSArray<NSString *> *)pathsToGet
+                        depth:(AFWebDAVDepth)depth
+                      success:(void (^)(NSURLSessionDataTask *task, id responseObject))success
+                      failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
+
+
+/**
+ *  获取完整的数据
+ *
+ *  @param URLString 服务器地址
+ *  @param tokenDic  用户token
+ *
+ *  @return NSURLSessionDataTask*
+ 
+ modify by OYXJ on 2016.08
+ */
+- (NSURLSessionDataTask *)REPORT:(NSString *)URLString
+                        tokenDic:(NSDictionary<NSString*,NSString*> *)tokenDic
+                        dataType:(NSString *)dataType
+                   propertyNames:(NSArray<NSString *>  *)propertiesToGet
+                        pathList:(NSArray<NSString *>  *)pathsToGet
+                           depth:(AFWebDAVDepth)depth
+                         success:(void (^)(NSURLSessionDataTask *task, id responseObject))success
+                         failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
+
+
 
 /**
  Creates and runs an `AFHTTPRequestOperation` with a `PROPPATCH` request with the specified properties to set and remove.
@@ -175,11 +231,11 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
 
  @see -HTTPRequestOperationWithRequest:success:failure:
  */
-- (AFHTTPRequestOperation *)PROPPATCH:(NSString *)URLString
-                                  set:(NSDictionary *)propertiesToSet
-                               remove:(NSArray *)propertiesToRemove
-                              success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
-                              failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure;
+- (NSURLSessionDataTask *)PROPPATCH:(NSString *)URLString
+                                set:(NSDictionary *)propertiesToSet
+                             remove:(NSArray *)propertiesToRemove
+                            success:(void (^)(NSURLSessionDataTask *task, id responseObject))success
+                            failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
 
 /**
  Creates and runs an `AFHTTPRequestOperation` with a `MKCOL` request with the specified URL string.
@@ -190,9 +246,9 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
 
  @see -HTTPRequestOperationWithRequest:success:failure:
  */
-- (AFHTTPRequestOperation *)MKCOL:(NSString *)URLString
-                          success:(void (^)(AFHTTPRequestOperation *operation, NSURLResponse *response))success
-                          failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure;
+- (NSURLSessionDataTask *)MKCOL:(NSString *)URLString
+                        success:(void (^)(NSURLSessionDataTask *task, NSURLResponse *response))success
+                        failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
 
 /**
  Creates and runs an `AFHTTPRequestOperation` with a `COPY` request with the specified source and destination URL strings.
@@ -206,12 +262,12 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
 
  @see -HTTPRequestOperationWithRequest:success:failure:
  */
-- (AFHTTPRequestOperation *)COPY:(NSString *)sourceURLString
-                     destination:(NSString *)destinationURLString
-                       overwrite:(BOOL)overwrite
-                      conditions:(NSString *)IfHeaderFieldValue
-                         success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
-                         failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure;
+- (NSURLSessionDataTask *)COPY:(NSString *)sourceURLString
+                   destination:(NSString *)destinationURLString
+                     overwrite:(BOOL)overwrite
+                    conditions:(NSString *)IfHeaderFieldValue
+                       success:(void (^)(NSURLSessionDataTask *task, id responseObject))success
+                       failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
 
 /**
  Creates and runs an `AFHTTPRequestOperation` with a `MOVE` request with the specified source and destination URL strings.
@@ -225,12 +281,12 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
 
  @see -HTTPRequestOperationWithRequest:success:failure:
  */
-- (AFHTTPRequestOperation *)MOVE:(NSString *)sourceURLString
-                     destination:(NSString *)destinationURLString
-                       overwrite:(BOOL)overwrite
-                      conditions:(NSString *)IfHeaderFieldValue
-                         success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
-                         failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure;
+- (NSURLSessionDataTask *)MOVE:(NSString *)sourceURLString
+                   destination:(NSString *)destinationURLString
+                     overwrite:(BOOL)overwrite
+                    conditions:(NSString *)IfHeaderFieldValue
+                       success:(void (^)(NSURLSessionDataTask *task, id responseObject))success
+                       failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
 
 /**
  Creates and runs an `AFHTTPRequestOperation` with a `LOCK` request with the specified URL string and lock attributes.
@@ -246,14 +302,14 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
 
  @see -HTTPRequestOperationWithRequest:success:failure:
  */
-- (AFHTTPRequestOperation *)LOCK:(NSString *)URLString
-                         timeout:(NSTimeInterval)timeoutInterval
-                           depth:(AFWebDAVDepth)depth
-                           scope:(AFWebDAVLockScope)scope
-                            type:(AFWebDAVLockType)type
-                           owner:(NSURL *)ownerURL
-                         success:(void (^)(AFHTTPRequestOperation *operation, NSString *lockToken))success
-                         failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure;
+- (NSURLSessionDataTask *)LOCK:(NSString *)URLString
+                       timeout:(NSTimeInterval)timeoutInterval
+                         depth:(AFWebDAVDepth)depth
+                         scope:(AFWebDAVLockScope)scope
+                          type:(AFWebDAVLockType)type
+                         owner:(NSURL *)ownerURL
+                       success:(void (^)(NSURLSessionDataTask *task, NSString *lockToken))success
+                       failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
 
 /**
  Creates and runs an `AFHTTPRequestOperation` with a `UNLOCK` request with the specified URL string and lock attributes.
@@ -265,10 +321,10 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
 
  @see -HTTPRequestOperationWithRequest:success:failure:
  */
-- (AFHTTPRequestOperation *)UNLOCK:(NSString *)URLString
-                             token:(NSString *)lockToken
-                           success:(void (^)(AFHTTPRequestOperation *operation, id responseObject))success
-                           failure:(void (^)(AFHTTPRequestOperation *operation, NSError *error))failure;
+- (NSURLSessionDataTask *)UNLOCK:(NSString *)URLString
+                           token:(NSString *)lockToken
+                         success:(void (^)(NSURLSessionDataTask *task, id responseObject))success
+                         failure:(void (^)(NSURLSessionDataTask *task, NSError *error))failure;
 
 @end
 
@@ -299,10 +355,35 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
 
 @end
 
+
+
+
+/*! @brief  Describes a resource on a remote server. This could be a directory or an actual file.
+ *  @author OuYangXiaoJin 2016.09.22
+ */
+@protocol WebDavResource <NSObject>
+
+@property (readonly, nonatomic, copy) NSString *etag;
+
+@property(nonatomic, copy, readonly) NSString *name;
+
+@property(nonatomic, strong, readonly)NSDictionary<NSString*, NSString*> *customProps;
+
+@property(nonatomic, copy, readonly) NSString *notedata;
+@property(nonatomic, copy, readonly) NSString *lastModified;
+@property(nonatomic, copy, readonly) NSString *deletedTime;
+@property(nonatomic, copy, readonly) NSString *deletedDataName;
+@property(nonatomic, copy, readonly) NSString *deleted;
+
+@end
+
+
+
+
 /**
  `AFWebDavMultiStatusResponse` is a subclass of `NSHTTPURLResponse` that is returned from multi-status responses sent by WebDAV servers.
  */
-@interface AFWebDAVMultiStatusResponse : NSHTTPURLResponse
+@interface AFWebDAVMultiStatusResponse : NSHTTPURLResponse <WebDavResource>
 
 ///-------------------------------------------
 /// @name Getting Response Property Attributes
@@ -327,5 +408,6 @@ typedef NS_ENUM(NSUInteger, AFWebDAVLockScope) {
  The last modified date of the resource at the response URL.
  */
 @property (readonly, nonatomic, copy) NSDate *lastModifiedDate;
+
 
 @end
